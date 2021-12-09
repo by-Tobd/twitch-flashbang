@@ -11,7 +11,7 @@ async def flashbang():
     async with Elgato(config.get("keylight")) as elgato:
         before_state: State = await elgato.state()
         await elgato.light(brightness=config.get("brightness"), on=True, temperature=((10**6)/config.get("temperature")))
-        asyncio.sleep(config.get("duration"))
+        await asyncio.sleep(config.get("duration"))
         await elgato.light(brightness=before_state.brightness, on=before_state.on, temperature=before_state.temperature)
 
 # Get info about Keylight and show to user
