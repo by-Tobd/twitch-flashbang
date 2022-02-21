@@ -4,7 +4,3 @@ client_secret = ""
 refresh_token = ""
 reward_id = "6ef17bb2-e5ae-432e-8b3f-5ac4dd774668"
 reward_name = "Flashbang"
-keylight = "127.0.0.1"
-temperature = 6500
-brightness = 100
-duration = 1

@@ -1,0 +1,4 @@
+host = "127.0.0.1"
+temperature = 6500
+brightness = 100
+duration = 1

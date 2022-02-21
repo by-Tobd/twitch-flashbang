@@ -6,21 +6,52 @@ from elgato import Elgato, State
 import os, toml, asyncio
 
 # Turn Light to specified settings and reset after duration
-async def flashbang():
-    config = toml.load("config.toml")
-    async with Elgato(config.get("keylight")) as elgato:
+async def flashbang(file):
+    config = toml.load(file)
+    async with Elgato(config.get("host")) as elgato:
         before_state: State = await elgato.state()
         await elgato.light(brightness=config.get("brightness"), on=True, temperature=((10**6)/config.get("temperature")))
         await asyncio.sleep(config.get("duration"))
         await elgato.light(brightness=before_state.brightness, on=before_state.on, temperature=before_state.temperature)
 
-# Get info about Keylight and show to user
+# flashbang all keylights
+async def start_flashbang():
+    devices = getDevices()
+    for device in devices:
+        asyncio.create_task(flashbang(device))
+    await asyncio.gather(*asyncio.all_tasks() - {asyncio.current_task()})
+
+# get info about all keylights and show
 async def show_info():
-    config = toml.load("config.toml")
-    print(config.get("keylight"))
-    async with Elgato(config.get("keylight")) as elgato:
-        print(await elgato.info())
-        print(await elgato.state())
+    devices = getDevices()    
+    for device in devices:
+        asyncio.create_task(get_info(device))
+    infos = await asyncio.gather(*asyncio.all_tasks() - {asyncio.current_task()})
+    for info in infos:
+        print(f"Name: {info[0]}\nHost: {info[1]}\nInfo: {info[2]}\nState: {info[3]}\n\n")
+
+# Get info about Keylight
+async def get_info(file):
+    config = toml.load(file)
+    result = list()
+    result.append(os.path.basename(file).split(".")[0])
+    result.append(config.get("host"))
+    async with Elgato(config.get("host")) as elgato:
+        result.append(await elgato.info())
+        result.append(await elgato.state())
+    return result
+    
+# get config files for keylights in "devices"
+def getDevices():
+    folder = os.path.abspath("devices")
+    contains = os.listdir(folder)
+    devices = list()
+    for file in contains:
+        path = os.path.join(folder, file)
+        if os.path.isfile(path):
+            devices.append(path)
+    return devices
+
 
 # Callback function for Redeem Event
 def on_event(uuid, data):
@@ -30,8 +61,8 @@ def on_event(uuid, data):
         name = data["data"]["redemption"]["reward"]["title"]
         config = toml.load("config.toml")
         if config.get("reward_name") == name or config.get("reward_id") == id:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(flashbang())
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(start_flashbang())
 
 
 if __name__ == "__main__":
@@ -61,6 +92,7 @@ if __name__ == "__main__":
         pubsub = PubSub(twitch)
         pubsub.start()
         uuid = pubsub.listen_channel_points(user_id, on_event)
+        loop = asyncio.new_event_loop()
         try:
             # Keep Script alive and enable test cmds
             while True:
@@ -68,10 +100,8 @@ if __name__ == "__main__":
                 if msg == "exit":
                     break
                 elif msg == "info":
-                    loop = asyncio.get_event_loop()
                     loop.run_until_complete(show_info())
                 elif msg == "test":
-                    loop = asyncio.get_event_loop()
-                    loop.run_until_complete(flashbang())
+                    loop.run_until_complete(start_flashbang())
         finally:
             pubsub.stop()
