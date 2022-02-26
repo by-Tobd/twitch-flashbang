@@ -1,5 +1,4 @@
-from twitchAPI.twitch import Twitch
-from twitchAPI.oauth import UserAuthenticator, refresh_access_token
+import setup
 from twitchAPI.types import AuthScope
 from twitchAPI.pubsub import PubSub
 from elgato import Elgato, State
@@ -68,23 +67,10 @@ def on_event(uuid, data):
 if __name__ == "__main__":
     if os.path.isfile("config.toml"):
         config = toml.load("config.toml")
+
         #Create TwitchAPI object
-        twitch = Twitch(config.get("client_id"), config.get("client_secret"))
-        scope = [AuthScope.CHANNEL_READ_REDEMPTIONS]
-        
-        # Read User Token from Config or promt user to generate one
-        if not config.get("refresh_token"):
-            auth = UserAuthenticator(twitch, scope, force_verify=False)
-            token, refresh_token = auth.authenticate()
-        else:
-            token, refresh_token = refresh_access_token(config.get("refresh_token"), config.get("client_id"), config.get("client_secret"))
-        
-        # Save new token
-        config.update({"refresh_token":refresh_token})
-        toml.dump(config, open("config.toml", "w"))
-        
-        # Apply Token to twitchAPI
-        twitch.set_user_authentication(token, scope, refresh_token)
+        twitch = setup.authenticated_twitch([AuthScope.CHANNEL_READ_REDEMPTIONS, AuthScope.CHANNEL_MANAGE_REDEMPTIONS])
+
         # Get UserID from name, used to identify channel
         user_id = twitch.get_users(logins=config.get("username"))["data"][0]["id"]
         

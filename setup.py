@@ -1,13 +1,46 @@
 
+from faulthandler import is_enabled
 import toml, os
 from twitchAPI.twitch import Twitch
-from twitchAPI.oauth import UserAuthenticator, refresh_access_token
+from twitchAPI import oauth
 from twitchAPI.types import AuthScope
+from twitchAPI import types
 from twitchAPI.pubsub import PubSub
-
+import json
 event_happened = False
 rew_id = ""
 rew_name = ""
+
+def authenticated_twitch(scopes:list[AuthScope]) -> Twitch:
+    config = toml.load("config.toml")
+    twitch = Twitch(config.get("client_id"), config.get("client_secret"))
+    
+    generateNewToken = False
+    # Read User Token from Config or promt user to generate one
+    try:
+        token, refresh_token = oauth.refresh_access_token(config.get("refresh_token"), config.get("client_id"), config.get("client_secret"))
+    except types.InvalidRefreshTokenException:
+        generateNewToken = True
+    
+
+    if not generateNewToken:
+        validation = oauth.validate_token(token)
+        if not all(i in validation.get("scopes") for i in scopes):
+            oauth.revoke_token(config.get("client_id"), refresh_token)
+            generateNewToken = True
+        
+    if generateNewToken:
+        auth = oauth.UserAuthenticator(twitch, scopes, force_verify=False)
+        token, refresh_token = auth.authenticate()
+
+    # Save new token
+    config.update({"refresh_token":refresh_token})
+    toml.dump(config, open("config.toml", "w"))
+    
+    # Apply Token to twitchAPI
+    twitch.set_user_authentication(token, scopes, refresh_token)
+
+    return twitch
 
 def main():
     os.makedirs("devices", exist_ok=True)
@@ -42,71 +75,125 @@ def on_event(uuid, data):
         rew_name = data["data"]["redemption"]["reward"]["title"]
         event_happened = True
 
+def detectReward(username):
+    twitch = authenticated_twitch([AuthScope.CHANNEL_MANAGE_REDEMPTIONS, AuthScope.CHANNEL_READ_REDEMPTIONS])
+
+    # Get UserID from name, used to identify channel
+    user_id = twitch.get_users(logins=username)["data"][0]["id"]
+    
+    # Connect to pubsub and setup Callback for Reward redeem
+    pubsub = PubSub(twitch)
+    pubsub.start()
+    uuid = pubsub.listen_channel_points(user_id, on_event)
+    print(f"Listening to Rewards in Channel: {username} (id: {user_id})")
+    while True:
+        if event_happened:
+            print(f"Reward Name: {rew_name}, Reward ID: {rew_id}")
+            if input("Are these right (y/n): ") == "y":
+                break
+            else:
+                event_happened = False
+
+                
+def createReward(config:dict):
+    twitch = authenticated_twitch([AuthScope.CHANNEL_MANAGE_REDEMPTIONS, AuthScope.CHANNEL_READ_REDEMPTIONS])
+    user_id = twitch.get_users(logins=config.get("username"))["data"][0]["id"]
+    print("Creating Reward")
+
+    title = input("Title: ")
+    prompt = input("Description: ")
+    cost = int(input("Cost: "))
+    is_enabled = input("Is enabled (y/n) [y]: ") != "n"
+
+    background_color = input("Background color (Hex color) [None]: ")
+    background_color = None if background_color == "" else background_color
+
+    is_user_input_required = input("Is user input required (y/n) [n]: ") == "y"
+
+    max_per_stream = input("Maximum per Stream [Unlimited]: ")
+    is_max_per_stream_enabled = False
+    if max_per_stream.isdigit():
+        is_max_per_stream_enabled = True
+        max_per_stream = int(max_per_stream)
+    else:
+        max_per_stream=None
+    
+
+    max_per_user_per_stream = input("Maximum per User per Stream [Unlimited]: ")
+    is_max_per_user_per_stream_enabled = False
+    if max_per_user_per_stream.isdigit():
+        is_max_per_user_per_stream_enabled = True
+        max_per_user_per_stream = int(max_per_user_per_stream)
+    else:
+        max_per_user_per_stream = None
+
+    global_cooldown_seconds = input("Cooldown (in seconds) [None]: ")
+    is_global_cooldown_enabled = False
+    if global_cooldown_seconds.isdigit():
+        is_global_cooldown_enabled = True
+        global_cooldown_seconds = int(global_cooldown_seconds)
+    else:
+        global_cooldown_seconds = None
+
+    should_redemptions_skip_request_queue = input("Skip request queue (y/n) [n]: ") == "y"
+
+    """reward = twitch.create_custom_reward(user_id,
+        title,
+        cost,
+        prompt,
+        is_enabled=is_enabled,
+        background_color=background_color,
+        is_user_input_required=is_user_input_required,
+        is_max_per_stream_enabled=is_max_per_stream_enabled,
+        max_per_stream=max_per_stream,
+        is_max_per_user_per_stream_enabled=is_max_per_user_per_stream_enabled,
+        max_per_user_per_stream=max_per_user_per_stream,
+        is_global_cooldown_enabled=is_global_cooldown_enabled,
+        global_cooldown_seconds=global_cooldown_seconds, 
+        should_redemptions_skip_request_queue=should_redemptions_skip_request_queue
+    )"""
+    reward = json.load(open("test.json", "r"))
+    reward_id   = reward["data"][0]["id"]
+    reward_name = reward["data"][0]["title"]
+    return reward_id, reward_name
+
+
 def setup_config():
     config = dict()
     try:
         config = toml.load("config.toml")
     except:
         pass
-    print("Write \"skip\" to use current value in config")
-    username = input("Twitch Username: ")
-    client_id = input("Client ID: ")
-    client_secret = input("Client Secret: ")
+    print("Leave any field empty to use default. Default value in [], mandatory if none given")
+    username = input("Twitch Username [in config]: ")
+    client_id = input("Client ID [in config]: ")
+    client_secret = input("Client Secret [in config]: ")
 
-    if username != "skip":
+    if username != "":
         config["username"] = username
-    if client_id != "skip":
+    if client_id != "":
         config["client_id"] = client_id
-    if client_secret != "skip":
+    if client_secret != "":
         config["client_secret"] = client_secret
 
-    refresh_token = ""
+    toml.dump(config, open("config.toml", "w"))
 
-    if input("Auto-detect reward name and id (y/n): ") == "y":
-        twitch = Twitch(config.get("client_id"), config.get("client_secret"))
-        scope = [AuthScope.CHANNEL_READ_REDEMPTIONS]
-
-        if not config.get("refresh_token"):
-            auth = UserAuthenticator(twitch, scope, force_verify=False)
-            token, refresh_token = auth.authenticate()
-        else:
-            token, refresh_token = refresh_access_token(config.get("refresh_token"), client_id, client_secret)
-        
-        # Save new token
-        config.update({"refresh_token":refresh_token})
-        
-        # Apply Token to twitchAPI
-        twitch.set_user_authentication(token, scope, refresh_token)
-        # Get UserID from name, used to identify channel
-        user_id = twitch.get_users(logins=username)["data"][0]["id"]
-        
-        # Connect to pubsub and setup Callback for Reward redeem
-        pubsub = PubSub(twitch)
-        pubsub.start()
-        uuid = pubsub.listen_channel_points(user_id, on_event)
-        print(f"Listening to Rewards in Channel: {username} (id: {user_id})")
-        while True:
-            if event_happened:
-                print(f"Reward Name: {rew_name}, Reward ID: {rew_id}")
-                if input("Are these right (y/n): ") == "y":
-                    break
-                else:
-                    event_happened = False
+    rewardPromt = input("Auto-detect (a), create (c) or manually (m) add Reward [m]: ")
+    if rewardPromt == "a":
+        detectReward(config["username"])
         reward_id = rew_id
         reward_name = rew_name
-
+    elif rewardPromt == "c":
+        reward_id, reward_name = createReward(config)
     else:
-        reward_name = input("Reward Name: ")
-        reward_id = input("Reward ID: ")
+        reward_name = input("Reward Name [in config]: ")
+        reward_id = input("Reward ID [in config]: ")
 
-    if reward_name != "skip":
+    if reward_name != "":
         config["reward_name"] = reward_name
-    if reward_id != "skip":
+    if reward_id != "":
         config["reward_id"] = reward_id
-    if refresh_token != "skip":
-        config["refresh_token"] = refresh_token
 
-    config.update(config)
 
     toml.dump(config, open("config.toml", "w"))
 
