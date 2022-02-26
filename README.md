@@ -28,7 +28,9 @@ After you filled the config, you can create as many keylight configs as you want
 1. Run setup.py (`python setup.py`)
 2. Enter values as promted (Explanations for the fields are above)
 
-To use the reward auto-detection you follow the script until you select auto-detect. Afterwards wait until it shows `Listening to Rewards in Channel: <USERNAME> (id: <USER_ID>)` and then redeem the reward that you want to trigger the flashbang. It will show the name and id of the reward that was redeemed which you will have to confirm.
+To use the reward auto-detection you follow the script until you select auto-detect. Afterwards wait until it shows `Listening to Rewards in Channel: <USERNAME> (id: <USER_ID>)` and then redeem the reward that you want to trigger the flashbang. It will show the name and id of the reward that was redeemed which you will have to confirm. 
+
+If you create a new reward using the setup.py an are unsure about a field, they are further explained in the [twitch docs](https://dev.twitch.tv/docs/api/reference#create-custom-rewards).
 # Run
 1. Open Terminal in folder and activate Environment (See Installation, Step 4)
 2. Run `python main.py`
