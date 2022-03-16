@@ -137,7 +137,7 @@ def createReward(config:dict):
 
     should_redemptions_skip_request_queue = input("Skip request queue (y/n) [n]: ") == "y"
 
-    """reward = twitch.create_custom_reward(user_id,
+    reward = twitch.create_custom_reward(user_id,
         title,
         cost,
         prompt,
@@ -151,8 +151,8 @@ def createReward(config:dict):
         is_global_cooldown_enabled=is_global_cooldown_enabled,
         global_cooldown_seconds=global_cooldown_seconds, 
         should_redemptions_skip_request_queue=should_redemptions_skip_request_queue
-    )"""
-    reward = json.load(open("test.json", "r"))
+    )
+    
     reward_id   = reward["data"][0]["id"]
     reward_name = reward["data"][0]["title"]
     return reward_id, reward_name
