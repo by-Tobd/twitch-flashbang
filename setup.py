@@ -76,6 +76,7 @@ def on_event(uuid, data):
         event_happened = True
 
 def detectReward(username):
+    global event_happened, rew_id, rew_name
     twitch = authenticated_twitch([AuthScope.CHANNEL_MANAGE_REDEMPTIONS, AuthScope.CHANNEL_READ_REDEMPTIONS])
 
     # Get UserID from name, used to identify channel
