@@ -4,17 +4,23 @@ from twitchAPI.pubsub import PubSub
 from elgato import Elgato, State
 import os, toml, asyncio
 
+debug = False
+
 # Turn Light to specified settings and reset after duration
 async def flashbang(file):
     config = toml.load(file)
     async with Elgato(config.get("host")) as elgato:
         before_state: State = await elgato.state()
-        await elgato.light(brightness=config.get("brightness"), on=True, temperature=((10**6)/config.get("temperature")))
+        temp = before_state.temperature
+        if config.get("temperature"):
+            temp = (10**6)/config.get("temperature")
+        await elgato.light(brightness=config.get("brightness"), on=True, temperature=temp)
         await asyncio.sleep(config.get("duration"))
         await elgato.light(brightness=before_state.brightness, on=before_state.on, temperature=before_state.temperature)
 
 # flashbang all keylights
 async def start_flashbang():
+    debug_log("Start Flashbang")
     devices = getDevices()
     for device in devices:
         asyncio.create_task(flashbang(device))
@@ -59,10 +65,15 @@ def on_event(uuid, data):
         id = data["data"]["redemption"]["reward"]["id"]
         name = data["data"]["redemption"]["reward"]["title"]
         config = toml.load("config.toml")
+
+        debug_log(f"Reward redeemed (Name: {name}, ID: {id})")
         if config.get("reward_name") == name or config.get("reward_id") == id:
             loop = asyncio.get_running_loop()
             loop.run_until_complete(start_flashbang())
 
+def debug_log(msg):
+    if debug:
+        print(msg)
 
 if __name__ == "__main__":
     if os.path.isfile("config.toml"):
@@ -82,12 +93,15 @@ if __name__ == "__main__":
         try:
             # Keep Script alive and enable test cmds
             while True:
-                msg = input("exit to close, info to show elgato info, test to flashbang ...")
+                msg = input("exit to close, info to show elgato info, test to flashbang, debug to toggle debug messages ...")
                 if msg == "exit":
                     break
                 elif msg == "info":
                     loop.run_until_complete(show_info())
                 elif msg == "test":
                     loop.run_until_complete(start_flashbang())
+                elif msg == "debug":
+                    debug = not debug
+                    print(f"Debug: {debug}")
         finally:
             pubsub.stop()

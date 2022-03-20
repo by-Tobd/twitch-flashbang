@@ -1,12 +1,11 @@
-
-from faulthandler import is_enabled
 import toml, os
 from twitchAPI.twitch import Twitch
 from twitchAPI import oauth
 from twitchAPI.types import AuthScope
 from twitchAPI import types
 from twitchAPI.pubsub import PubSub
-import json
+import time
+
 event_happened = False
 rew_id = ""
 rew_name = ""
@@ -52,7 +51,7 @@ def setupDevice():
     config = dict()
     name = input("Name (only used for filenaming): ")
     config["host"] = input("Hostname or IP: ")
-    config["temperature"] = int(input("Temperature: "))
+    config["temperature"] = int(input("Temperature (leave empty to not change value): "))
     config["brightness"] = int(input("Brightness: "))
     config["duration"] = float(input("Duration: "))
     toml.dump(config, open(f"devices/{name}.toml", "w"))
@@ -91,9 +90,11 @@ def detectReward(username):
         if event_happened:
             print(f"Reward Name: {rew_name}, Reward ID: {rew_id}")
             if input("Are these right (y/n): ") == "y":
-                break
+                return rew_id, rew_name
             else:
                 event_happened = False
+        else:
+            time.sleep(1)
 
                 
 def createReward(config:dict):
@@ -181,9 +182,7 @@ def setup_config():
 
     rewardPromt = input("Auto-detect (a), create (c) or manually (m) add Reward [m]: ")
     if rewardPromt == "a":
-        detectReward(config["username"])
-        reward_id = rew_id
-        reward_name = rew_name
+        reward_id, reward_name = detectReward(config["username"])
     elif rewardPromt == "c":
         reward_id, reward_name = createReward(config)
     else:
