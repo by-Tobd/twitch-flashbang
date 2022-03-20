@@ -17,7 +17,7 @@ Fill all fields in config.toml
     - Choose a name
     - Enter `http://localhost:17563` as the OAuth Redirect URL
     - Choose a Category
-  3. Click Manage on your create App
+  3. Click Manage on your created App
   4. Create a new Secret and copy both the ID and the Secret into their fields in the config.toml
 - Refresh Token: Doesn't have to be entered, it will be generated automatically
 - Reward id and name: The name and id of the custom reward that should trigger the flashbang. Only one of the fields needs to be filled. I don't know how to find them as I don't have access to custom rewards
