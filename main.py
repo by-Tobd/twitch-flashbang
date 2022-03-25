@@ -61,6 +61,7 @@ def getDevices():
 # Callback function for Redeem Event
 def on_event(uuid, data):
     # Check if event is the Flashbang
+    debug_log(f"Event happened: {data}")
     if data["type"] == "reward-redeemed":
         id = data["data"]["redemption"]["reward"]["id"]
         name = data["data"]["redemption"]["reward"]["title"]
@@ -68,8 +69,18 @@ def on_event(uuid, data):
 
         debug_log(f"Reward redeemed (Name: {name}, ID: {id})")
         if config.get("reward_name") == name or config.get("reward_id") == id:
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(start_flashbang())
+            run(start_flashbang())
+
+def run(awaitable):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        tsk = loop.create_task(awaitable)
+    else:
+        asyncio.run(awaitable)
 
 def debug_log(msg):
     if debug:
@@ -88,8 +99,8 @@ if __name__ == "__main__":
         # Connect to pubsub and setup Callback for Reward redeem
         pubsub = PubSub(twitch)
         pubsub.start()
+
         uuid = pubsub.listen_channel_points(user_id, on_event)
-        loop = asyncio.new_event_loop()
         try:
             # Keep Script alive and enable test cmds
             while True:
@@ -97,9 +108,9 @@ if __name__ == "__main__":
                 if msg == "exit":
                     break
                 elif msg == "info":
-                    loop.run_until_complete(show_info())
+                    run(show_info())
                 elif msg == "test":
-                    loop.run_until_complete(start_flashbang())
+                    run(start_flashbang())
                 elif msg == "debug":
                     debug = not debug
                     print(f"Debug: {debug}")
