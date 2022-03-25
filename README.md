@@ -2,7 +2,7 @@
 A python script to trigger a Elgato Key Light flashbang when a user redeems a custom reward. It sets the settings of the Keylight to specified values and resets them afterwards. 
 # Setup
 ## Installation
-1. Install [Python](https://www.python.org/downloads/) (I used 3.10.0, don't know which is needed at the minimum)
+1. Install [Python](https://www.python.org/downloads/) (I used 3.10.0, must be above 3.9)
 2. Clone repository or download and unzip
 3. Open Terminal in folder and create venv `python3 -m venv venv` or `python -m venv venv`
 4. Activate enviroment Powershell: `& .\venv\Scripts\Activate.ps1` Cmd: `.\venv\Scripts\activate.bat` Bash: `source venv/bin/activate`
