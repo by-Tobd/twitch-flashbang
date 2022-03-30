@@ -51,7 +51,9 @@ def setupDevice():
     config = dict()
     name = input("Name (only used for filenaming): ")
     config["host"] = input("Hostname or IP: ")
-    config["temperature"] = int(input("Temperature (leave empty to not change value): "))
+    temp = input("Temperature (leave empty to not change value): ")
+    if temp:
+        config["temperature"] = int(temp)
     config["brightness"] = int(input("Brightness: "))
     config["duration"] = float(input("Duration: "))
     toml.dump(config, open(f"devices/{name}.toml", "w"))
